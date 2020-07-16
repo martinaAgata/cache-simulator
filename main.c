@@ -46,6 +46,12 @@ int main(int argc, char const *argv[]) {
 }
 
 int cache_simulator(char const* filename, cache_t* cache){
+  //Creo un buffer local de memoria estática.
+  uint8_t buf[512];
+  size_t count = sizeof(buf);
+  //Trato de leer hasta 512 bytes del archivo.
+  ssize_t bytes_read = read(origin_file_descriptor, buf, count);
+  ssize_t total_bytes_read = 0;
 
 
 }
