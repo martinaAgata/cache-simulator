@@ -50,8 +50,23 @@ int cache_simulator(char const* filename, cache_t* cache){
   uint8_t buf[512];
   size_t count = sizeof(buf);
   //Trato de leer hasta 512 bytes del archivo.
-  ssize_t bytes_read = read(origin_file_descriptor, buf, count);
+  ssize_t bytes_read = read(filename, buf, count);
   ssize_t total_bytes_read = 0;
+
+  //Mientras que no ocurra un error sigo leyendo estos bytes.
+  while (bytes_read != -1){
+      if (bytes_written){
+        bytes_written = write(destiny_file_descriptor, &(buf[bytes_written-1]), (size_t)(bytes_read - bytes_written));
+      }
+      else{
+        bytes_written = write(destiny_file_descriptor, buf, (size_t)(bytes_read));
+      }
+      total_bytes_written += bytes_written;
+    }
+    //Trato de leer los siguientes 512 bytes.
+    bytes_read = read(origin_file_descriptor, buf, count);
+    bytes_written = 0;
+  }
 
 
 }
