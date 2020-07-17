@@ -100,12 +100,21 @@ int main(int argc, char const *argv[]) {
 		fprintf(stderr, "Error: Cantidad de argumentos incorrecta\n");
 		exit(1);
 	}
-	int c = atoi(argv[1]); // tamaño de caché (bytes)
-	int e = atoi(argv[2]); // líneas por set
-	int s = atoi(argv[3]); // número de sets
+	int c = atoi(argv[2]); // tamaño de caché (bytes)
+	int e = atoi(argv[3]); // líneas por set
+	int s = atoi(argv[4]); // número de sets
 	if (inputs_are_valid(c, e, s)) {
 		fprintf(stderr, "Error: Argumento incorrecto\n");
 		exit(1);
+	}
+	int n, m;
+	if (argc == 8) {
+		n = atoi(argv[6]); // líneas por set
+		m = atoi(argv[7]); // número de sets
+		if (n <= 0 || m <= 0 || n > m) {
+			fprintf(stderr, "Error en modo verboso: Argumento incorrecto\n");
+			exit(1);
+		}
 	}
 
 	FILE *tracefile;
