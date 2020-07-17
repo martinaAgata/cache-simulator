@@ -39,4 +39,38 @@ int main(int argc, char const *argv[]) {
 }
 
 int cache_simulator(FILE* tracefile, cache_t* cache){
+    //Parseo las líneas del archivo
+    int instruction_pointer;
+    char operation;
+    int memory_address;
+    size_t bytes_amount;
+    int data;
+
+    bool errors = false;
+    char** strv;//para guardar los campos de cada línea
+    char* line = NULL;//para que getline se encargue de manejar la memoria
+    size_t bytes = 0;//para que getline se encargue de manejar la memoria
+    long int read_bytes;
+
+    while((read_bytes = getline(&line, &bytes, input)) != -1 && !errors){
+       if (line[read_bytes - 1] == '\n') line[--read_bytes] = '\0'; //Piso el \n
+       strv = split(line, ' ');//separo la línea por espacios
+
+       instruction_pointer = (int)strtol(strv[0], NULL, 16);
+       operation = strv[1];
+       memory_address = (int)strtol(strv[2], NULL, 16);
+       bytes_amount = (size_t)atoi(strv[3]);
+       data = (int)strtol(strv[4], NULL, 16);
+
+       if (operation == 'W'){
+           errors = cache_write(cache, memory_address, bytes_amount, &data);
+       }
+       else if (operation == 'R'){
+           errors = cache_read(cache, memory_address, bytes_amount, &data);
+       }
+       if(errors) break;
+       free_strv(strv);
+    }
+    free(line);
+    if (!errors) return 0;
 }
