@@ -34,8 +34,8 @@ int main(int argc, char const *argv[]) {
 	FILE* tracefile;
 	const char* input_file = argv[1];
 	tracefile = fopen(input_file, "r");
-	if(!tracefile){
-		fprintf( stderr, "Error: archivo fuente inaccesible");
+	if (!tracefile) {
+		fprintf(stderr, "Error: archivo fuente inaccesible");
 		return 0;
 	}
 	cache_simulator(tracefile, cache);
