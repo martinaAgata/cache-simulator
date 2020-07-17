@@ -17,8 +17,8 @@ char** split(const char* str, char sep) {
 	size_t contador = 2;
 	int i = 0;
 	while (str[i]) if(str[i++] == sep) contador++;
-	char** strv = malloc(contador*sizeof(char*));
-	if(!strv) return NULL;
+	char** strv = malloc(contador * sizeof(char*));
+	if (!strv) return NULL;
 
 	size_t len = 0;
 	int j = 0, k = 0;
@@ -45,7 +45,7 @@ char** split(const char* str, char sep) {
 			}
 		}
 		else len++;
-		if(str[j]) j++;
+		if (str[j]) j++;
 	}
 	strv[k] = NULL;
 	return strv;

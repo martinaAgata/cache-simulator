@@ -21,7 +21,7 @@ typedef struct {
 } line_t;
 
 typedef struct {
-	line_t* lines;
+	line_t *lines;
 	int size; // size = E
 } set_t;
 
@@ -49,18 +49,18 @@ cache_t *create_cache(size_t size, size_t e, size_t s) {
 */
 
 
-int cache_simulator(FILE* tracefile, cache_t* cache) {
+int cache_simulator(FILE *tracefile, cache_t *cache) {
 	// Parseo las líneas del archivo
 	int instruction_pointer, memory_address, data;
 	char operation;
 	size_t bytes_amount;
 
 	bool errors = false;
-	char** strv; // Para guardar los campos de cada línea
-	char* line = NULL; // Para que getline se encargue de manejar la memoria
+	char **strv; // Para guardar los campos de cada línea
+	char *line = NULL; // Para que getline se encargue de manejar la memoria
 	size_t bytes = 0; // Para que getline se encargue de manejar la memoria
 	long int read_bytes;
-	FILE* input;
+	FILE *input;
 	while ((read_bytes = getline(&line, &bytes, input)) != -1 && !errors) {
 		if (line[read_bytes - 1] == '\n') line[--read_bytes] = '\0'; // Piso el \n
 		strv = split(line, ' '); // Separo la línea por espacios
@@ -100,19 +100,19 @@ int main(int argc, char const *argv[]) {
 		fprintf(stderr, "Error: Cantidad de argumentos incorrecta\n");
 		exit(1);
 	}
-	int c = atoi(argv[1]); // tamaño de la caché C (bytes)
-	int e = atoi(argv[2]); // número de líneas por set
+	int c = atoi(argv[1]); // tamaño de caché (bytes)
+	int e = atoi(argv[2]); // líneas por set
 	int s = atoi(argv[3]); // número de sets
-	if (inputs_are_valid(c,e,s)) {
+	if (inputs_are_valid(c, e, s)) {
 		fprintf(stderr, "Error: Argumento incorrecto\n");
 		exit(1);
 	}
 
-	FILE* tracefile;
-	const char* input_file = argv[1];
+	FILE *tracefile;
+	const char *input_file = argv[1];
 	tracefile = fopen(input_file, "r");
 	if (!tracefile) {
-		fprintf(stderr, "Error: archivo fuente inaccesible");
+		fprintf(stderr, "Error: Archivo fuente inaccesible");
 		return 0;
 	}
 	cache_t *cache = create_cache(c, e, s);
