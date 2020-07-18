@@ -33,15 +33,48 @@ typedef struct {
 	set_t **sets;
 } cache_t;
 
+/*
+	Estructura para almacenar las estádisticas
+	y no tener que estar pasando todas esas variables de una función a otra.
+*/
+typedef struct {
+    size_t loads;
+    size_t stores;
+    size_t rmiss;
+    size_t wmiss;
+	size_t dirty_rmiss;
+	size_t dirty_wmiss;
+    size_t bytes_read;
+    size_t bytes_written;
+    size_t read_time;
+    size_t write_time;
+} stats_t
+
 /******************************************************************************/
 
+cache_t *create_stats() {
+	stats_t *stats = malloc(sizeof(stats_t));
+	stats->loads = 0;
+    stats->stores = 0;
+    stats->rmiss = 0;
+    stats->wmiss = 0;
+	stats->dirty_rmiss = 0;
+	stats->dirty_wmiss = 0;
+    stats->bytes_read = 0;
+    stats->bytes_written = 0;
+    stats->read_time = 0;
+    stats->write_time = 0;
 
-int cache_read(cache_t *cache, int memory_address, size_t bytes_amount, int *data) {
+	return stats;
 
 }
 
-int cache_write(cache_t *cache, int memory_address, size_t bytes_amount, int *data) {
+int cache_read(cache_t *cache, int memory_address, size_t bytes_amount, int *data) {
+	// Coming Soon
+}
 
+int cache_write(cache_t *cache, int memory_address, size_t bytes_amount, int *data) {
+	// Coming Soon
 }
 
 cache_t *create_cache(size_t c, size_t e, size_t s) {
