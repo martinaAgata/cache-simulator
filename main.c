@@ -64,19 +64,21 @@ cache_t *create_cache(size_t c, size_t e, size_t s) {
 	// IMPLEMENTAR LIBERAR MEMORIA DE LOS DEMAS SETS O LINEAS SI ALGUN MALLOC FALLA
 }
 
-int cache_simulator(FILE *tracefile, cache_t *cache) {
+int cache_simulator(FILE *tracefile, cache_t *cache, bool verbose, int n, int m) {
 	// Parseo las líneas del archivo
 	int instruction_pointer, memory_address, data;
 	char operation;
 	size_t bytes_amount;
 
 	bool errors = false;
+	int lines_read = -1; // Para cuando haya que imprimir con verbose
 	char **strv; // Para guardar los campos de cada línea
 	char *line = NULL; // Para que getline se encargue de manejar la memoria
 	size_t bytes = 0; // Para que getline se encargue de manejar la memoria
 	long read_bytes;
 	FILE *input;
 	while ((read_bytes = getline(&line, &bytes, input)) != -1 && !errors) {
+		lines_read++;
 		if (line[read_bytes - 1] == '\n') line[--read_bytes] = '\0'; // Piso el \n
 		strv = split(line, ' ');
 
@@ -92,13 +94,17 @@ int cache_simulator(FILE *tracefile, cache_t *cache) {
 		else if (operation == 'R') {
 			errors = cache_read(cache, memory_address, bytes_amount, &data);
 		}
+
+		if (verbose && (lines_read >= n || lines_read <= m) ) {
+			printf("%s\n", "Estoy en modo verboso así que imprimo lo que hice");
+		}
+
 		free_strv(strv);
 		if (errors) break;
 	}
 	free(line);
 	if (!errors) return 0;
 }
-
 
 int is_power_of_2(int x) {
 	return x && !(x & (x - 1));
@@ -149,6 +155,6 @@ int main(int argc, char const *argv[]) { // ./cachesim tracefile.xex C E S -v n 
 		return 0;
 	}
 	cache_t *cache = create_cache(c, e, s);
-	int cache_result = cache_simulator(tracefile, cache);
+	int cache_result = cache_simulator(tracefile, cache, verbose, n, m);
 	return 0;
 }
