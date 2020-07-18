@@ -48,11 +48,11 @@ typedef struct {
     size_t bytes_written;
     size_t read_time;
     size_t write_time;
-} stats_t
+} stats_t;
 
 /******************************************************************************/
 
-stats_t *create_stats() {
+stats_t *create_stats(void) {
 	stats_t *stats = malloc(sizeof(stats_t));
 	stats->loads = 0;
     stats->stores = 0;
@@ -66,7 +66,6 @@ stats_t *create_stats() {
     stats->write_time = 0;
 
 	return stats;
-
 }
 
 int cache_read(cache_t *cache, int memory_address, size_t bytes_amount, int *data, stats_t *stats) {
