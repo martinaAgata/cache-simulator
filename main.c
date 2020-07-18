@@ -52,7 +52,7 @@ typedef struct {
 
 /******************************************************************************/
 
-cache_t *create_stats() {
+stats_t *create_stats() {
 	stats_t *stats = malloc(sizeof(stats_t));
 	stats->loads = 0;
     stats->stores = 0;
@@ -69,11 +69,11 @@ cache_t *create_stats() {
 
 }
 
-int cache_read(cache_t *cache, int memory_address, size_t bytes_amount, int *data) {
+int cache_read(cache_t *cache, int memory_address, size_t bytes_amount, int *data, stats_t *stats) {
 	// Coming Soon
 }
 
-int cache_write(cache_t *cache, int memory_address, size_t bytes_amount, int *data) {
+int cache_write(cache_t *cache, int memory_address, size_t bytes_amount, int *data, stats_t *stats) {
 	// Coming Soon
 }
 
@@ -102,6 +102,7 @@ int cache_simulator(FILE *tracefile, cache_t *cache, bool verbose, int n, int m)
 	int instruction_pointer, memory_address, data;
 	char operation;
 	size_t bytes_amount;
+	stats_t *stats = create_stats();
 
 	bool errors = false;
 	int lines_read = -1; // Para cuando haya que imprimir con verbose
@@ -121,11 +122,13 @@ int cache_simulator(FILE *tracefile, cache_t *cache, bool verbose, int n, int m)
 		bytes_amount = (size_t) atoi(strv[3]);
 		data = (int) strtol(strv[4], NULL, 16);
 
+		// Actualizar el objeto stats
+
 		if (operation == 'W') {
-			errors = cache_write(cache, memory_address, bytes_amount, &data);
+			errors = cache_write(cache, memory_address, bytes_amount, &data, stats);
 		}
 		else if (operation == 'R') {
-			errors = cache_read(cache, memory_address, bytes_amount, &data);
+			errors = cache_read(cache, memory_address, bytes_amount, &data, stats);
 		}
 
 		if (verbose && (lines_read >= n || lines_read <= m) ) {
