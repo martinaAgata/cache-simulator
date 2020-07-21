@@ -2,15 +2,16 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <math.h> // Ver si se puede usar, si no implementar log2(x)
 #include "strutil.h"
-#define address_size 32
+#define ADDRESS_SIZE 32 // Veamos si hay una forma más fina que hacer esto
 
-// Las direcciones de memoria son siempre de 32 bits.
-// La política que desalojo, que es siempre least-recently used (LRU)
-// La penalty por accesos a memoria es siempre 100 ciclos
+// Política de desalojo: LRU
+// Penalty por accesos a memoria: 100 ciclos
+// Después creemos un archivo separado donde dejar estructuras y/o funciones
+// separando las principales para el flujo del simulador y las auxiliares
+// para que haya más legibilidad.
 
-// #include <stdint.h>
-// typedef uint32_t memory_address; QUIZAS SIRVA
 
 /********************* Estructuras provisorias ********************************/
 
@@ -74,7 +75,6 @@ stats_t *create_stats(void) {
 	return stats;
 }
 
-
 /*
 	Recibe la caché y un tag, y busca entre todos los elementos de la caché,
 	si hay una coincidencia devuelve la linea, si no devuelve NULL
@@ -93,19 +93,27 @@ line_t *check_for_match(cache_t *cache, size_t tag) {
 }
 
 /*
-	S = 2 ^ s
-	B = 2 ^ b
-	t = m - s - b
-	m = t + s + b
+	Extrae de una dirección de 32 bits: tag, set index y block offset teniendo
+	en cuenta los valores de E, S y C de la caché actual, y devuelve un objeto
+	access_data_t que almacena esos datos.
 */
-access_data_t *get_access_data(int memory_address) {
+access_data_t *get_access_data(cache_t *cache, int memory_address) {
+	// No me gusta este nombre de función pero no estoy creativa hoy
 	// ¿Se podrá hacer sin memoria dinámica? Tipo, ¿tendrá algún beneficio?
+	size_t offset_size = cache->c / (cache->s * cache->e);
+	size_t index_size = log2(cache->s);
+	size_t tag_size = ADDRESS_SIZE - index_size - offset_size;
+
+	size_t offset = ((1 << offset_size) - 1) & memory_address;
+	size_t index = (((1 << index_size) - 1) & memory_address) >> offset_size;
+	size_t tag = (((1 << tag_size) - 1) & memory_address) >> (offset_size + index_size);
+
 	access_data_t *data = malloc(sizeof(access_data_t));
 	if (!data) return NULL;
-	// ...
-	// data->tag = ;
-	// data->index = ;
-	// data->offset = ;
+
+	data->tag = tag;
+	data->index = index;
+	data->offset = offset;
 	return data;
 }
 
@@ -167,7 +175,7 @@ int cache_simulator(FILE *tracefile, cache_t *cache, bool verbose, int n, int m)
 		operation = strv[1][0];
 		memory_address = (int) strtol(strv[2], NULL, 16);
 		bytes_amount = (size_t) atoi(strv[3]);
-		access_data = get_access_data(memory_address);
+		access_data = get_access_data(cache, memory_address);
 
 		// Actualizar el objeto stats
 
