@@ -2,7 +2,6 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
-#include <math.h> // Ver si se puede usar, si no implementar log2(x)
 #include "strutil.h"
 #define ADDRESS_SIZE 32 // Veamos si hay una forma más fina que hacer esto
 
@@ -80,6 +79,9 @@ stats_t *create_stats(void) {
 	si hay una coincidencia devuelve la linea, si no devuelve NULL
 */
 line_t *check_for_match(cache_t *cache, size_t tag) {
+	// Cambiar nombre por uno más piola
+	// Ver si sirve devolver la línea sólo en caso de hit o si habría que devolverla
+	// siempre y avisar de algún modo (con el return value) si hubo hit o miss
 	// Algoritmo pésimo pero podemos mejorarlo después, por ahora es más o menos es útil.
 	size_t i, j;
 	for (i = 0; i < cache->s ; i++) {
@@ -93,6 +95,13 @@ line_t *check_for_match(cache_t *cache, size_t tag) {
 	return NULL;
 }
 
+
+unsigned int log_2(unsigned int x) { // Calcula log2(x) con mala performance
+	unsigned int y = 0 ;
+	while ( x >>= 1 ) y++;
+	return y;
+}
+
 /*
 	Extrae de una dirección de 32 bits: tag, set index y block offset teniendo
 	en cuenta los valores de E, S y C de la caché actual, y devuelve un objeto
@@ -102,7 +111,7 @@ access_data_t *get_access_data(cache_t *cache, int memory_address) {
 	// No me gusta este nombre de función pero no estoy creativa hoy
 	// ¿Se podrá hacer sin memoria dinámica? Tipo, ¿tendrá algún beneficio?
 	size_t offset_size = cache->c / (cache->s * cache->e);
-	size_t index_size = log2(cache->s);
+	size_t index_size = log_2(cache->s);
 	size_t tag_size = ADDRESS_SIZE - index_size - offset_size;
 
 	size_t offset = ((1 << offset_size) - 1) & memory_address;
@@ -119,7 +128,7 @@ access_data_t *get_access_data(cache_t *cache, int memory_address) {
 }
 
 int cache_read(cache_t *cache, access_data_t *data, size_t bytes_amount, stats_t *stats) {
-	line_t data_match = check_for_match(cache, data->tag);
+	line_t *data_match = check_for_match(cache, data->tag);
 	if (data_match) { // Read hit
 		// Actualizar dato en bloque (al actualizar dejar tantos bytes como tenga
 		// la unidad de direccionamiento)
@@ -133,7 +142,7 @@ int cache_read(cache_t *cache, access_data_t *data, size_t bytes_amount, stats_t
 }
 
 int cache_write(cache_t *cache, access_data_t *data, size_t bytes_amount, stats_t *stats) {
-	line_t data_match = check_for_match(cache, data->tag);
+	line_t *data_match = check_for_match(cache, data->tag);
 	if (data_match) { // Write hit
 		// Actualizar dato en bloque (al actualizar dejar B bytes)
 		// Actualizar estadísticas
