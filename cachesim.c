@@ -84,7 +84,8 @@ line_t *check_for_match(cache_t *cache, size_t tag) {
 	size_t i, j;
 	for (i = 0; i < cache->s ; i++) {
 		for (j = 0; j < cache->s ; j++) {
-			if (cache->sets[i]->lines[j]->tag == tag) {
+			if ((cache->sets[i]->lines[j]->tag == tag) && (cache->sets[i]->lines[j]->valid == 1)) {
+				// Devuelvo la línea sólo si hay
 				return cache->sets[i]->lines[j];
 			}
 		}
@@ -118,12 +119,29 @@ access_data_t *get_access_data(cache_t *cache, int memory_address) {
 }
 
 int cache_read(cache_t *cache, access_data_t *data, size_t bytes_amount, stats_t *stats) {
-	// Coming Soon
+	line_t data_match = check_for_match(cache, data->tag);
+	if (data_match) { // Read hit
+		// Actualizar dato en bloque (al actualizar dejar tantos bytes como tenga
+		// la unidad de direccionamiento)
+		// Actualizar estadísticas
+	}
+	else { // Read miss
+		// Ver si se puede guardar directo el dato o hay que desalojar (usando LRU)
+		// Actualizar las estadísticas
+	}
 	return 0;
 }
 
 int cache_write(cache_t *cache, access_data_t *data, size_t bytes_amount, stats_t *stats) {
-	// Coming Soon
+	line_t data_match = check_for_match(cache, data->tag);
+	if (data_match) { // Write hit
+		// Actualizar dato en bloque (al actualizar dejar B bytes)
+		// Actualizar estadísticas
+	}
+	else { // Write miss
+		// Ver si se puede guardar directo el dato o hay que desalojar (usando LRU)
+		// Actualizar las estadísticas
+	}
 	return 0;
 }
 
@@ -175,6 +193,8 @@ int cache_simulator(FILE *tracefile, cache_t *cache, bool verbose, int n, int m)
 		operation = strv[1][0];
 		memory_address = (int) strtol(strv[2], NULL, 16);
 		bytes_amount = (size_t) atoi(strv[3]);
+		// En este caso no hay problema con castear porque sabemos que la tracefile es válida
+
 		access_data = get_access_data(cache, memory_address);
 
 		// Actualizar el objeto stats
@@ -228,8 +248,8 @@ int main(int argc, char const *argv[]) { // ./cachesim tracefile.xex C E S -v n 
 	}
 
 	bool verbose = false;
-	int n = 0; // Después vemos qué hacer con esto, el tema es que si no se
-	int m = 0; // inicializan la línea 242 puede romper
+	int n = 0; // Después vemos qué hacer con esto; el tema es que si no se
+	int m = 0; // inicializan n y m la línea 242 puede romper
 	if (argc == 8) {
 		if (strcmp(argv[5], "-v") == 0) {
 			n = atoi(argv[6]);
