@@ -11,7 +11,6 @@
 // separando las principales para el flujo del simulador y las auxiliares
 // para que haya más legibilidad.
 
-
 /********************* Estructuras provisorias ********************************/
 
 typedef struct {
