@@ -37,6 +37,9 @@ typedef struct {
 	size_t s;
 	size_t block_bytes;
 	set_t **sets;
+	size_t offset_bits; // Esto es de lo que había flashado; si querés ponerlo
+	size_t index_bits; // como variables globales mandale, as you wish, sólo
+	size_t tag_bits; // lo corregí momentaneamente.
 } cache_t;
 
 /*
@@ -94,7 +97,6 @@ line_t *check_for_match(cache_t *cache, size_t tag) {
 	return NULL;
 }
 
-
 unsigned int log_2(unsigned int x) { // Calcula log2(x) con mala performance
 	unsigned int y = 0 ;
 	while ( x >>= 1 ) y++;
@@ -109,13 +111,10 @@ unsigned int log_2(unsigned int x) { // Calcula log2(x) con mala performance
 access_data_t *get_access_data(cache_t *cache, int memory_address) {
 	// No me gusta este nombre de función pero no estoy creativa hoy
 	// ¿Se podrá hacer sin memoria dinámica? Tipo, ¿tendrá algún beneficio?
-	size_t offset_size = cache->c / (cache->s * cache->e);
-	size_t index_size = log_2(cache->s);
-	size_t tag_size = ADDRESS_SIZE - index_size - offset_size;
 
-	size_t offset = ((1 << offset_size) - 1) & memory_address;
-	size_t index = (((1 << index_size) - 1) & memory_address) >> offset_size;
-	size_t tag = (((1 << tag_size) - 1) & memory_address) >> (offset_size + index_size);
+	size_t offset = ((1 << offset_bits) - 1) & memory_address;
+	size_t index = (((1 << index_bits) - 1) & memory_address) >> offset_bits;
+	size_t tag = (((1 << tag_bits) - 1) & memory_address) >> (offset_bits + index_bits);
 
 	access_data_t *data = malloc(sizeof(access_data_t));
 	if (!data) return NULL;
@@ -132,8 +131,7 @@ int cache_read(cache_t *cache, access_data_t *data, size_t bytes_amount, stats_t
 		// Actualizar dato en bloque (al actualizar dejar tantos bytes como tenga
 		// la unidad de direccionamiento)
 		// Actualizar estadísticas
-	}
-	else { // Read miss
+	} else { // Read miss
 		// Ver si se puede guardar directo el dato o hay que desalojar (usando LRU)
 		// Actualizar las estadísticas
 	}
@@ -145,8 +143,7 @@ int cache_write(cache_t *cache, access_data_t *data, size_t bytes_amount, stats_
 	if (data_match) { // Write hit
 		// Actualizar dato en bloque (al actualizar dejar B bytes)
 		// Actualizar estadísticas
-	}
-	else { // Write miss
+	} else { // Write miss
 		// Ver si se puede guardar directo el dato o hay que desalojar (usando LRU)
 		// Actualizar las estadísticas
 	}
@@ -159,6 +156,10 @@ cache_t *create_cache(size_t c, size_t e, size_t s) {
 	cache->e = e;
 	cache->s = s;
 	cache->block_bytes = c / (e*s);
+
+	cache->offset_bits = cache->c / (cache->s * cache->e);
+	cache->index_bits = log_2(cache->s);
+	cache->tag_bits = ADDRESS_SIZE - index_bits - offset_bits;
 
 	size_t i, j;
 	for (i = 0; i < s; i++) {
@@ -209,8 +210,7 @@ int cache_simulator(FILE *tracefile, cache_t *cache, bool verbose, int n, int m)
 
 		if (operation == 'W') {
 			errors = cache_write(cache, access_data, bytes_amount, stats);
-		}
-		else if (operation == 'R') {
+		} else if (operation == 'R') {
 			errors = cache_read(cache, access_data, bytes_amount, stats);
 		}
 
@@ -240,7 +240,6 @@ int inputs_are_valid(int a, int b, int c) {
 	cierra el archivo y libera el cache
 */
 int main(int argc, char const *argv[]) { // ./cachesim tracefile.xex C E S -v n m
-
 	if (!(argc == 5 || argc == 8)) {
 		fprintf(stderr, "Error: Cantidad de argumentos incorrecta\n");
 		exit(1);
