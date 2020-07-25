@@ -77,8 +77,6 @@ stats_t *create_stats(void) {
 	return stats;
 }
 
-
-
 unsigned int log_2(unsigned int x) { // Calcula log2(x) con mala performance
 	unsigned int y = 0 ;
 	while ( x >>= 1 ) y++;
@@ -95,9 +93,9 @@ line_t *check_for_match(cache_t *cache, access_data_t *access_data) {
 	// siempre y avisar de algún modo (con el return value) si hubo hit o miss
 	// Algoritmo pésimo pero podemos mejorarlo después, por ahora es más o menos es útil.
 	for (size_t i = 0; i < cache->E ; i++) {
-		if ( (cache->sets[accesss_data->set_index]->lines[i]->valid) && (cache->sets[accesss_data->set_index]->lines[i]->tag == tag) ) {
+		if ((cache->sets[access_data->set_index]->lines[i]->valid) && (cache->sets[access_data->set_index]->lines[i]->tag == tag)) {
 			// Devuelvo la línea sólo si hay
-			return cache->sets[accesss_data->set_index]->lines[i];
+			return cache->sets[access_data->set_index]->lines[i];
 		}
 	}
 	return NULL;
@@ -110,21 +108,21 @@ line_t *check_for_match(cache_t *cache, access_data_t *access_data) {
 line_t *load_line(cache_t *cache, access_data_t *access_data) {
 	line_t* line = NULL;
 	line_t *invalid_line = NULL;
-	line_t *least_used_line = cache->sets[accesss_data->set_index]->lines[0];
+	line_t *least_used_line = cache->sets[access_data->set_index]->lines[0];
 	// Busco si el tag está cargado en la línea, pero es invalido
 	for (size_t i = 0; i < cache->E ; i++) {
-		line = cache->sets[accesss_data->set_index]->lines[i];
+		line = cache->sets[access_data->set_index]->lines[i];
 		if ( (line->tag == tag) && !(line->valid)) {
 			// Cambio la lína a válida porque la "cargue"
 			line->valid = 1;
 			return line;
 		}
 		// Voy guardando la linea menos utilizada
-		if (line->acces_counter >= least_used_line->acces_counter){
+		if (line->acces_counter >= least_used_line->acces_counter) {
 			least_used_line = line;
 		}
 		// Guardo alguna línea invalida que haya encontrado
-		if (!line->valid){
+		if (!line->valid) {
 			invalid_line = line;
 		}
 	}
