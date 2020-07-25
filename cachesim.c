@@ -24,6 +24,7 @@ typedef struct {
 	size_t dirty;
 	size_t tag;
 	size_t block;
+	size_t acces_counter;
 } line_t;
 
 typedef struct {
@@ -76,31 +77,67 @@ stats_t *create_stats(void) {
 	return stats;
 }
 
-/*
-	Recibe la caché y un tag, y busca entre todos los elementos de la caché,
-	si hay una coincidencia devuelve la linea, si no devuelve NULL
-*/
-line_t *check_for_match(cache_t *cache, size_t tag) {
-	// Cambiar nombre por uno más piola
-	// Ver si sirve devolver la línea sólo en caso de hit o si habría que devolverla
-	// siempre y avisar de algún modo (con el return value) si hubo hit o miss
-	// Algoritmo pésimo pero podemos mejorarlo después, por ahora es más o menos es útil.
-	size_t i, j;
-	for (i = 0; i < cache->s ; i++) {
-		for (j = 0; j < cache->s ; j++) {
-			if ((cache->sets[i]->lines[j]->tag == tag) && (cache->sets[i]->lines[j]->valid == 1)) {
-				// Devuelvo la línea sólo si hay
-				return cache->sets[i]->lines[j];
-			}
-		}
-	}
-	return NULL;
-}
+
 
 unsigned int log_2(unsigned int x) { // Calcula log2(x) con mala performance
 	unsigned int y = 0 ;
 	while ( x >>= 1 ) y++;
 	return y;
+}
+
+/*
+	Recibe la caché y el patrón de acceso, y busca entre los elementos de la caché,
+	si hay una coincidencia devuelve la linea, si no devuelve NULL
+*/
+line_t *check_for_match(cache_t *cache, access_data_t *access_data) {
+	// Cambiar nombre por uno más piola
+	// Ver si sirve devolver la línea sólo en caso de hit o si habría que devolverla
+	// siempre y avisar de algún modo (con el return value) si hubo hit o miss
+	// Algoritmo pésimo pero podemos mejorarlo después, por ahora es más o menos es útil.
+	for (size_t i = 0; i < cache->E ; i++) {
+		if ( (cache->sets[accesss_data->set_index]->lines[i]->valid) && (cache->sets[accesss_data->set_index]->lines[i]->tag == tag) ) {
+			// Devuelvo la línea sólo si hay
+			return cache->sets[accesss_data->set_index]->lines[i];
+		}
+	}
+	return NULL;
+}
+
+/*
+	Recibe la caché y el patrón de acceso, y carga la línea en la caché,
+	devuelve NULL en caso de error, caso contrario devuelve la línea cargada.
+*/
+line_t *load_line(cache_t *cache, access_data_t *access_data) {
+	line_t* line = NULL;
+	// Busco si el tag está cargado en la línea, pero es invalido
+	line_t *least_used_line = cache->sets[accesss_data->set_index]->lines[0];
+	line_t *invalid_line = NULL;
+	for (size_t i = 0; i < cache->E ; i++) {
+		line = cache->sets[accesss_data->set_index]->lines[i];
+		if ( (line->tag == tag) && !(line->valid)) {
+			// Cambio la lína a válida porque la "cargue"
+			line->valid = 1;
+			return line;
+		}
+		// Voy guardando la linea menos utilizada
+		if (line->acces_counter >= least_used_line->acces_counter){
+			least_used_line = line;
+		}
+		// Guardo alguna línea invalida que haya encontrado
+		if (!line->valid){
+			invalid_line = line;
+		}
+	}
+	// Recorrí todas las líneas y no encontré el tag
+	if (invalid_line) line = invalid_line; //reemplazo una línea invalida
+	else line = least_used_line; //reemplazo la línea menos utilizada
+
+	if (!line) return NULL;
+
+	line->valid = 1;
+	line->tag = access_data->tag;
+	line->acces_counter = 0;
+	return line;
 }
 
 /*
@@ -126,14 +163,23 @@ access_data_t *get_access_data(cache_t *cache, int memory_address) {
 }
 
 int cache_read(cache_t *cache, access_data_t *data, size_t bytes_amount, stats_t *stats) {
-	line_t *data_match = check_for_match(cache, data->tag);
-	if (data_match) { // Read hit
+	line_t *line_match = check_for_match(cache, data->tag);
+	if (line_match) { // Read hit
 		// Actualizar dato en bloque (al actualizar dejar tantos bytes como tenga
 		// la unidad de direccionamiento)
+
+		// Actualizo el acceso para la política de desalojo
+		line_match->acces_counter++;
 		// Actualizar estadísticas
+		stats->loads++;
+
 	} else { // Read miss
+		// Actualizar el dirty read
+
 		// Ver si se puede guardar directo el dato o hay que desalojar (usando LRU)
+		cache_write(cache, data, bytes_amount, stats);
 		// Actualizar las estadísticas
+		stats->rmiss++;
 	}
 	return 0;
 }
@@ -142,35 +188,42 @@ int cache_write(cache_t *cache, access_data_t *data, size_t bytes_amount, stats_
 	line_t *data_match = check_for_match(cache, data->tag);
 	if (data_match) { // Write hit
 		// Actualizar dato en bloque (al actualizar dejar B bytes)
+
 		// Actualizar estadísticas
+		stats->stores++;
 	} else { // Write miss
 		// Ver si se puede guardar directo el dato o hay que desalojar (usando LRU)
+
 		// Actualizar las estadísticas
+		stats->wmiss++;
 	}
 	return 0;
 }
 
 cache_t *create_cache(size_t c, size_t e, size_t s) {
-	cache_t *cache = malloc(sizeof(cache_t));
+	cache_t *cache = calloc(sizeof(cache_t));
 	cache->c = c;
-	cache->e = e;
+	cache->E = e;
 	cache->s = s;
 	cache->block_bytes = c / (e*s);
 
-	cache->offset_bits = cache->c / (cache->s * cache->e);
+	cache->offset_bits = cache->c / (cache->s * cache->E);
 	cache->index_bits = log_2(cache->s);
 	cache->tag_bits = ADDRESS_SIZE - index_bits - offset_bits;
 
 	size_t i, j;
 	for (i = 0; i < s; i++) {
-		cache->sets[i] = malloc(sizeof(set_t));
+		cache->sets[i] = calloc(sizeof(set_t));
 		if (cache->sets[i] == NULL) return NULL;
 		cache->sets[i]->size = e;
 		for (j = 0; j < e; j++) {
-			cache->sets[i]->lines[j] = malloc(sizeof(line_t));
+			cache->sets[i]->lines[j] = calloc(sizeof(line_t));
 			if (cache->sets[i]->lines[j] == NULL) return NULL;
-			cache->sets[i]->lines[j]->valid = 0;
-			cache->sets[i]->lines[j]->dirty = 0;
+
+			//Con calloc ya limpia la memoria cuando la reserva
+
+			//cache->sets[i]->lines[j]->valid = 0;
+			//cache->sets[i]->lines[j]->dirty = 0;
 			// Ver cómo distribuir los tags en las líneas y qué
 			// guardar en el bloque de comienzo (¿nada en todo?)
 		}
