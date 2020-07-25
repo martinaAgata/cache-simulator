@@ -109,9 +109,9 @@ line_t *check_for_match(cache_t *cache, access_data_t *access_data) {
 */
 line_t *load_line(cache_t *cache, access_data_t *access_data) {
 	line_t* line = NULL;
-	// Busco si el tag está cargado en la línea, pero es invalido
-	line_t *least_used_line = cache->sets[accesss_data->set_index]->lines[0];
 	line_t *invalid_line = NULL;
+	line_t *least_used_line = cache->sets[accesss_data->set_index]->lines[0];
+	// Busco si el tag está cargado en la línea, pero es invalido
 	for (size_t i = 0; i < cache->E ; i++) {
 		line = cache->sets[accesss_data->set_index]->lines[i];
 		if ( (line->tag == tag) && !(line->valid)) {
@@ -185,16 +185,20 @@ int cache_read(cache_t *cache, access_data_t *data, size_t bytes_amount, stats_t
 }
 
 int cache_write(cache_t *cache, access_data_t *data, size_t bytes_amount, stats_t *stats) {
-	line_t *data_match = check_for_match(cache, data->tag);
-	if (data_match) { // Write hit
+	line_t *line_match = check_for_match(cache, data->tag);
+	if (line_match) { // Write hit
 		// Actualizar dato en bloque (al actualizar dejar B bytes)
-
+		// Actualizo el acceso para la política de desalojo
+		line_match->acces_counter++;
 		// Actualizar estadísticas
 		stats->stores++;
 	} else { // Write miss
 		// Ver si se puede guardar directo el dato o hay que desalojar (usando LRU)
 
 		// Actualizar las estadísticas
+		stats->loads++; //Cualquier miss incrementa bytes read
+
+		//Solo si es dirty
 		stats->wmiss++;
 	}
 	return 0;
