@@ -33,9 +33,9 @@ typedef struct {
 } set_t;
 
 typedef struct {
-	size_t c;
-	size_t e;
-	size_t s;
+	size_t C;
+	size_t E;
+	size_t S;
 	size_t block_bytes;
 	set_t **sets;
 	size_t offset_bits; // Esto es de lo que había flashado; si querés ponerlo
@@ -88,10 +88,7 @@ unsigned int log_2(unsigned int x) { // Calcula log2(x) con mala performance
 	si hay una coincidencia devuelve la linea, si no devuelve NULL
 */
 line_t *check_for_match(cache_t *cache, access_data_t *access_data) {
-	// Cambiar nombre por uno más piola
-	// Ver si sirve devolver la línea sólo en caso de hit o si habría que devolverla
-	// siempre y avisar de algún modo (con el return value) si hubo hit o miss
-	// Algoritmo pésimo pero podemos mejorarlo después, por ahora es más o menos es útil.
+	// Ver si modificar el nombre :3
 	for (size_t i = 0; i < cache->E ; i++) {
 		if ((cache->sets[access_data->set_index]->lines[i]->valid) && (cache->sets[access_data->set_index]->lines[i]->tag == tag)) {
 			// Devuelvo la línea sólo si hay
@@ -204,13 +201,13 @@ int cache_write(cache_t *cache, access_data_t *data, size_t bytes_amount, stats_
 
 cache_t *create_cache(size_t c, size_t e, size_t s) {
 	cache_t *cache = calloc(sizeof(cache_t));
-	cache->c = c;
+	cache->C = c;
 	cache->E = e;
-	cache->s = s;
+	cache->S = s;
 	cache->block_bytes = c / (e*s);
 
-	cache->offset_bits = cache->c / (cache->s * cache->E);
-	cache->index_bits = log_2(cache->s);
+	cache->offset_bits = cache->C / (cache->S * cache->E);
+	cache->index_bits = log_2(cache->S);
 	cache->tag_bits = ADDRESS_SIZE - index_bits - offset_bits;
 
 	size_t i, j;
@@ -263,13 +260,13 @@ int cache_simulator(FILE *tracefile, cache_t *cache, bool verbose, int n, int m)
 
 		// Actualizar el objeto stats
 
-		if (operation == 'W') {
-			errors = cache_write(cache, access_data, bytes_amount, stats);
-		} else if (operation == 'R') {
+ 		if (operation == 'R') {
 			errors = cache_read(cache, access_data, bytes_amount, stats);
+		} else if (operation == 'W') {
+			errors = cache_write(cache, access_data, bytes_amount, stats);
 		}
 
-		if (verbose && (lines_read >= n || lines_read <= m) ) {
+		if (verbose && (lines_read >= n || lines_read <= m)) { // No se si hay que hacer este chequeo acá
 			printf("%s\n", "Estoy en modo verboso así que imprimo lo que hice");
 		}
 
