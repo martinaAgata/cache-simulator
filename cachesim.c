@@ -17,6 +17,7 @@ typedef struct {
 	size_t tag;
 	size_t index;
 	size_t offset;
+	size_t operation_index;
 } access_data_t;
 
 typedef struct {
@@ -24,7 +25,7 @@ typedef struct {
 	size_t dirty;
 	size_t tag;
 	size_t block;
-	size_t acces_counter;
+	size_t last_used;
 } line_t;
 
 typedef struct {
@@ -115,7 +116,7 @@ line_t *load_line(cache_t *cache, access_data_t *access_data) {
 			return line;
 		}
 		// Voy guardando la linea menos utilizada
-		if (line->acces_counter >= least_used_line->acces_counter) {
+		if (line->last_used >= least_used_line->last_used) {
 			least_used_line = line;
 		}
 		// Guardo alguna línea invalida que haya encontrado
@@ -131,7 +132,7 @@ line_t *load_line(cache_t *cache, access_data_t *access_data) {
 
 	line->valid = 1;
 	line->tag = access_data->tag;
-	line->acces_counter = 0;
+	line->last_used = data->operation_index;
 	return line;
 }
 
@@ -140,7 +141,7 @@ line_t *load_line(cache_t *cache, access_data_t *access_data) {
 	en cuenta los valores de E, S y C de la caché actual, y devuelve un objeto
 	access_data_t que almacena esos datos.
 */
-access_data_t *get_access_data(cache_t *cache, int memory_address) {
+access_data_t *get_access_data(cache_t *cache,size_t op_index, int memory_address) {
 	// No me gusta este nombre de función pero no estoy creativa hoy
 	// ¿Se podrá hacer sin memoria dinámica? Tipo, ¿tendrá algún beneficio?
 
@@ -154,6 +155,7 @@ access_data_t *get_access_data(cache_t *cache, int memory_address) {
 	data->tag = tag;
 	data->index = index;
 	data->offset = offset;
+	data->operation_index = op_index;
 	return data;
 }
 
@@ -164,7 +166,7 @@ int cache_read(cache_t *cache, access_data_t *data, size_t bytes_amount, stats_t
 		// la unidad de direccionamiento)
 
 		// Actualizo el acceso para la política de desalojo
-		line_match->acces_counter++;
+		line_match->last_used = data->operation_index;
 		// Actualizar estadísticas
 		stats->loads++;
 
@@ -184,7 +186,7 @@ int cache_write(cache_t *cache, access_data_t *data, size_t bytes_amount, stats_
 	if (line_match) { // Write hit
 		// Actualizar dato en bloque (al actualizar dejar B bytes)
 		// Actualizo el acceso para la política de desalojo
-		line_match->acces_counter++;
+		line_match->last_used = data->operation_index;
 		// Actualizar estadísticas
 		stats->stores++;
 	} else { // Write miss
@@ -244,19 +246,20 @@ int cache_simulator(FILE *tracefile, cache_t *cache, bool verbose, int n, int m)
 	char *line = NULL; // Para que getline se encargue de manejar la memoria
 	size_t bytes = 0; // Para que getline se encargue de manejar la memoria
 	long read_bytes;
+	size_t op_index = 0;
 	access_data_t *access_data = NULL;
 	while ((read_bytes = getline(&line, &bytes, tracefile)) != -1 && !errors) {
 		lines_read++;
 		if (line[read_bytes - 1] == '\n') line[--read_bytes] = '\0'; // Piso el \n
 		strv = split(line, ' ');
-
-		// instruction_pointer = (int) strtol(strv[0], NULL, 16);
+		op_index++;
+		//instruction_pointer = (int) strtol(strv[0], NULL, 16);
 		operation = strv[1][0];
 		memory_address = (int) strtol(strv[2], NULL, 16);
 		bytes_amount = (size_t) atoi(strv[3]);
 		// En este caso no hay problema con castear porque sabemos que la tracefile es válida
 
-		access_data = get_access_data(cache, memory_address);
+		access_data = get_access_data(cache,op_index, memory_address);
 
 		// Actualizar el objeto stats
 
