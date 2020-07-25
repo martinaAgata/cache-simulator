@@ -194,7 +194,7 @@ int cache_write(cache_t *cache, access_data_t *data, size_t bytes_amount, stats_
 		stats->stores++;
 	} else { // Write miss
 		// Ver si se puede guardar directo el dato o hay que desalojar (usando LRU)
-
+		line_t *loaded_line = load_line(cache, data);
 		// Actualizar las estadísticas
 		stats->loads++; //Cualquier miss incrementa bytes read
 
