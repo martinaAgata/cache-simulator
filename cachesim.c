@@ -91,9 +91,9 @@ unsigned int log_2(unsigned int x) { // Calcula log2(x) con mala performance
 line_t *check_for_match(cache_t *cache, access_data_t *access_data) {
 	// Ver si modificar el nombre :3
 	for (size_t i = 0; i < cache->E ; i++) {
-		if ((cache->sets[access_data->set_index]->lines[i]->valid) && (cache->sets[access_data->set_index]->lines[i]->tag == tag)) {
+		if ((cache->sets[access_data->index]->lines[i]->valid) && (cache->sets[access_data->index]->lines[i]->tag == access_data->tag)) {
 			// Devuelvo la línea sólo si hay
-			return cache->sets[access_data->set_index]->lines[i];
+			return cache->sets[access_data->index]->lines[i];
 		}
 	}
 	return NULL;
@@ -106,11 +106,11 @@ line_t *check_for_match(cache_t *cache, access_data_t *access_data) {
 line_t *load_line(cache_t *cache, access_data_t *access_data) {
 	line_t* line = NULL;
 	line_t *invalid_line = NULL;
-	line_t *least_used_line = cache->sets[access_data->set_index]->lines[0];
+	line_t *least_used_line = cache->sets[access_data->index]->lines[0];
 	// Busco si el tag está cargado en la línea, pero es invalido
 	for (size_t i = 0; i < cache->E ; i++) {
-		line = cache->sets[access_data->set_index]->lines[i];
-		if ( (line->tag == tag) && !(line->valid)) {
+		line = cache->sets[access_data->index]->lines[i];
+		if ((line->tag == access_data->tag) && !(line->valid)) {
 			// Cambio la lína a válida porque la "cargue"
 			line->valid = 1;
 			return line;
@@ -132,7 +132,7 @@ line_t *load_line(cache_t *cache, access_data_t *access_data) {
 
 	line->valid = 1;
 	line->tag = access_data->tag;
-	line->last_used = data->operation_index;
+	line->last_used = access_data->operation_index;
 	return line;
 }
 
@@ -141,13 +141,13 @@ line_t *load_line(cache_t *cache, access_data_t *access_data) {
 	en cuenta los valores de E, S y C de la caché actual, y devuelve un objeto
 	access_data_t que almacena esos datos.
 */
-access_data_t *get_access_data(cache_t *cache,size_t op_index, int memory_address) {
+access_data_t *get_access_data(cache_t *cache, size_t op_index, int memory_address) {
 	// No me gusta este nombre de función pero no estoy creativa hoy
 	// ¿Se podrá hacer sin memoria dinámica? Tipo, ¿tendrá algún beneficio?
 
-	size_t offset = ((1 << offset_bits) - 1) & memory_address;
-	size_t index = (((1 << index_bits) - 1) & memory_address) >> offset_bits;
-	size_t tag = (((1 << tag_bits) - 1) & memory_address) >> (offset_bits + index_bits);
+	size_t offset = ((1 << cache->offset_bits) - 1) & memory_address;
+	size_t index = (((1 << cache->index_bits) - 1) & memory_address) >> cache->offset_bits;
+	size_t tag = (((1 << cache->tag_bits) - 1) & memory_address) >> (cache->offset_bits + cache->index_bits);
 
 	access_data_t *data = malloc(sizeof(access_data_t));
 	if (!data) return NULL;
@@ -159,30 +159,8 @@ access_data_t *get_access_data(cache_t *cache,size_t op_index, int memory_addres
 	return data;
 }
 
-int cache_read(cache_t *cache, access_data_t *data, size_t bytes_amount, stats_t *stats) {
-	line_t *line_match = check_for_match(cache, data->tag);
-	if (line_match) { // Read hit
-		// Actualizar dato en bloque (al actualizar dejar tantos bytes como tenga
-		// la unidad de direccionamiento)
-
-		// Actualizo el acceso para la política de desalojo
-		line_match->last_used = data->operation_index;
-		// Actualizar estadísticas
-		stats->loads++;
-
-	} else { // Read miss
-		// Actualizar el dirty read
-
-		// Ver si se puede guardar directo el dato o hay que desalojar (usando LRU)
-		cache_write(cache, data, bytes_amount, stats);
-		// Actualizar las estadísticas
-		stats->rmiss++;
-	}
-	return 0;
-}
-
 int cache_write(cache_t *cache, access_data_t *data, size_t bytes_amount, stats_t *stats) {
-	line_t *line_match = check_for_match(cache, data->tag);
+	line_t *line_match = check_for_match(cache, data);
 	if (line_match) { // Write hit
 		// Actualizar dato en bloque (al actualizar dejar B bytes)
 		// Actualizo el acceso para la política de desalojo
@@ -201,8 +179,26 @@ int cache_write(cache_t *cache, access_data_t *data, size_t bytes_amount, stats_
 	return 0;
 }
 
+int cache_read(cache_t *cache, access_data_t *data, size_t bytes_amount, stats_t *stats) {
+	line_t *line_match = check_for_match(cache, data);
+	if (line_match) { // Read hit
+		// Actualizo el acceso para la política de desalojo
+		line_match->last_used = data->operation_index;
+		// Actualizar estadísticas
+		stats->loads++;
+
+	} else { // Read miss
+		// Actualizar el dirty read
+		// Ver si hay que desalojar (usando LRU)
+		cache_write(cache, data, bytes_amount, stats);
+		// Actualizar las estadísticas
+		stats->rmiss++;
+	}
+	return 0; // Ver qué devolver
+}
+
 cache_t *create_cache(size_t c, size_t e, size_t s) {
-	cache_t *cache = calloc(sizeof(cache_t));
+	cache_t *cache = calloc(1, sizeof(cache_t));
 	cache->C = c;
 	cache->E = e;
 	cache->S = s;
@@ -210,23 +206,22 @@ cache_t *create_cache(size_t c, size_t e, size_t s) {
 
 	cache->offset_bits = cache->C / (cache->S * cache->E);
 	cache->index_bits = log_2(cache->S);
-	cache->tag_bits = ADDRESS_SIZE - index_bits - offset_bits;
+	cache->tag_bits = ADDRESS_SIZE - cache->index_bits - cache->offset_bits;
 
 	size_t i, j;
 	for (i = 0; i < s; i++) {
-		cache->sets[i] = calloc(sizeof(set_t));
+		cache->sets[i] = calloc(1, sizeof(set_t));
 		if (cache->sets[i] == NULL) return NULL;
 		cache->sets[i]->size = e;
 		for (j = 0; j < e; j++) {
-			cache->sets[i]->lines[j] = calloc(sizeof(line_t));
+			cache->sets[i]->lines[j] = calloc(1, sizeof(line_t));
 			if (cache->sets[i]->lines[j] == NULL) return NULL;
+			// Si calloc() no funcionó habría que liberar el resto de la memoria, ¿o no?
 
-			//Con calloc ya limpia la memoria cuando la reserva
+			// Con calloc ya limpia la memoria cuando la reserva
 
 			//cache->sets[i]->lines[j]->valid = 0;
 			//cache->sets[i]->lines[j]->dirty = 0;
-			// Ver cómo distribuir los tags en las líneas y qué
-			// guardar en el bloque de comienzo (¿nada en todo?)
 		}
 	}
 	return cache;
@@ -235,7 +230,7 @@ cache_t *create_cache(size_t c, size_t e, size_t s) {
 
 int cache_simulator(FILE *tracefile, cache_t *cache, bool verbose, int n, int m) {
 	// Parseo las líneas del archivo
-	int instruction_pointer, memory_address;
+	int memory_address;
 	char operation;
 	size_t bytes_amount;
 	stats_t *stats = create_stats();
@@ -323,14 +318,13 @@ int main(int argc, char const *argv[]) { // ./cachesim tracefile.xex C E S -v n 
 			exit(1);
 		}
 	}
-
 	const char *input_file = argv[1];
 	FILE *tracefile = fopen(input_file, "r");
 	if (!tracefile) {
-		fprintf(stderr, "Error: Archivo fuente inaccesible");
+		fprintf(stderr, "Error: Archivo fuente inaccesible\n");
 		return 0;
 	}
 	cache_t *cache = create_cache(c, e, s);
-	int cache_result = cache_simulator(tracefile, cache, verbose, n, m);
+	cache_simulator(tracefile, cache, verbose, n, m);
 	return 0;
 }
