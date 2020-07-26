@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "strutil.h"
-#define ADDRESS_SIZE 32 // Veamos si hay una forma más fina que hacer esto
+#define ADDRESS_SIZE 32
 #define ACCESS_PENALTY 100
 
 // Política de desalojo: LRU
@@ -36,9 +36,9 @@ typedef struct {
 	size_t S;
 	size_t block_bytes;
 	set_t **sets;
-	size_t offset_bits; // Esto es de lo que había flashado; si querés ponerlo
-	size_t index_bits; // como variables globales mandale, as you wish, sólo
-	size_t tag_bits; // lo corregí momentaneamente.
+	size_t offset_bits; // Ver después si dejar todos estos acá
+	size_t index_bits;
+	size_t tag_bits;
 } cache_t;
 
 /*
@@ -75,7 +75,7 @@ stats_t *create_stats(void) {
 	return stats;
 }
 
-unsigned int log_2(unsigned int x) { // Calcula log2(x) con mala performance
+unsigned int log_2(unsigned int x) { // Ver si usar esto o no
 	unsigned int y = 0 ;
 	while ( x >>= 1 ) y++;
 	return y;
@@ -203,8 +203,6 @@ cache_t *create_cache(size_t c, size_t e, size_t s) {
 	access_data_t que almacena esos datos.
  */
 access_data_t *get_access_data(cache_t *cache, size_t op_index, int memory_address) {
-	// No me gusta este nombre de función pero no estoy creativa hoy
-	// ¿Se podrá hacer sin memoria dinámica? Tipo, ¿tendrá algún beneficio?
 
 	size_t offset = ((1 << cache->offset_bits) - 1) & memory_address;
 	size_t index = (((1 << cache->index_bits) - 1) & memory_address) >> cache->offset_bits;
@@ -293,8 +291,8 @@ int main(int argc, char const *argv[]) { // ./cachesim tracefile.xex C E S -v n 
 	}
 
 	bool verbose = false;
-	int n = 0; // Después vemos qué hacer con esto; el tema es que si no se
-	int m = 0; // inicializan n y m la línea 242 puede romper
+	int n = 0;
+	int m = 0; // Si no se inicializan n y m la línea 242 puede romper
 	if (argc == 8) {
 		if (strcmp(argv[5], "-v") == 0) {
 			n = atoi(argv[6]);
