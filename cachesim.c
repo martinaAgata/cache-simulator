@@ -4,12 +4,9 @@
 #include <string.h>
 #include "strutil.h"
 #define ADDRESS_SIZE 32 // Veamos si hay una forma más fina que hacer esto
+#define ACCESS_PENALTY 100
 
 // Política de desalojo: LRU
-// Penalty por accesos a memoria: 100 ciclos
-// Después creemos un archivo separado donde dejar estructuras y/o funciones
-// separando las principales para el flujo del simulador y las auxiliares
-// para que haya más legibilidad.
 
 /********************* Estructuras provisorias ********************************/
 
@@ -85,24 +82,9 @@ unsigned int log_2(unsigned int x) { // Calcula log2(x) con mala performance
 }
 
 /*
-	Recibe la caché y el patrón de acceso, y busca entre los elementos de la caché,
-	si hay una coincidencia devuelve la linea, si no devuelve NULL
-*/
-line_t *check_for_match(cache_t *cache, access_data_t *access_data) {
-	// Ver si modificar el nombre :3
-	for (size_t i = 0; i < cache->E ; i++) {
-		if ((cache->sets[access_data->index]->lines[i]->valid) && (cache->sets[access_data->index]->lines[i]->tag == access_data->tag)) {
-			// Devuelvo la línea sólo si hay
-			return cache->sets[access_data->index]->lines[i];
-		}
-	}
-	return NULL;
-}
-
-/*
 	Recibe la caché y el patrón de acceso, y carga la línea en la caché,
 	devuelve NULL en caso de error, caso contrario devuelve la línea cargada.
-*/
+ */
 line_t *load_line(cache_t *cache, access_data_t *access_data) {
 	line_t* line = NULL;
 	line_t *invalid_line = NULL;
@@ -137,26 +119,18 @@ line_t *load_line(cache_t *cache, access_data_t *access_data) {
 }
 
 /*
-	Extrae de una dirección de 32 bits: tag, set index y block offset teniendo
-	en cuenta los valores de E, S y C de la caché actual, y devuelve un objeto
-	access_data_t que almacena esos datos.
-*/
-access_data_t *get_access_data(cache_t *cache, size_t op_index, int memory_address) {
-	// No me gusta este nombre de función pero no estoy creativa hoy
-	// ¿Se podrá hacer sin memoria dinámica? Tipo, ¿tendrá algún beneficio?
-
-	size_t offset = ((1 << cache->offset_bits) - 1) & memory_address;
-	size_t index = (((1 << cache->index_bits) - 1) & memory_address) >> cache->offset_bits;
-	size_t tag = (((1 << cache->tag_bits) - 1) & memory_address) >> (cache->offset_bits + cache->index_bits);
-
-	access_data_t *data = malloc(sizeof(access_data_t));
-	if (!data) return NULL;
-
-	data->tag = tag;
-	data->index = index;
-	data->offset = offset;
-	data->operation_index = op_index;
-	return data;
+	Recibe la caché y el patrón de acceso, y busca entre los elementos de la caché,
+	si hay una coincidencia devuelve la linea, si no devuelve NULL
+ */
+line_t *check_for_match(cache_t *cache, access_data_t *access_data) {
+	// Ver si modificar el nombre :3
+	for (size_t i = 0; i < cache->E ; i++) {
+		if ((cache->sets[access_data->index]->lines[i]->valid) && (cache->sets[access_data->index]->lines[i]->tag == access_data->tag)) {
+			// Devuelvo la línea sólo si hay
+			return cache->sets[access_data->index]->lines[i];
+		}
+	}
+	return NULL;
 }
 
 int cache_write(cache_t *cache, access_data_t *data, size_t bytes_amount, stats_t *stats) {
@@ -203,7 +177,6 @@ cache_t *create_cache(size_t c, size_t e, size_t s) {
 	cache->E = e;
 	cache->S = s;
 	cache->block_bytes = c / (e*s);
-
 	cache->offset_bits = cache->C / (cache->S * cache->E);
 	cache->index_bits = log_2(cache->S);
 	cache->tag_bits = ADDRESS_SIZE - cache->index_bits - cache->offset_bits;
@@ -216,16 +189,35 @@ cache_t *create_cache(size_t c, size_t e, size_t s) {
 		for (j = 0; j < e; j++) {
 			cache->sets[i]->lines[j] = calloc(1, sizeof(line_t));
 			if (cache->sets[i]->lines[j] == NULL) return NULL;
-			// Si calloc() no funcionó habría que liberar el resto de la memoria, ¿o no?
-
-			// Con calloc ya limpia la memoria cuando la reserva
-
-			//cache->sets[i]->lines[j]->valid = 0;
-			//cache->sets[i]->lines[j]->dirty = 0;
+			// Si calloc() no funcionó habría que liberar el resto de la memoria
+			// y no devolver NULL directo, ¿no?
 		}
 	}
 	return cache;
 	// Liberar memoria del resto de los sets o líneas si un malloc() falla
+}
+
+/*
+	Extrae de una dirección de 32 bits: tag, set index y block offset teniendo
+	en cuenta los valores de E, S y C de la caché actual, y devuelve un objeto
+	access_data_t que almacena esos datos.
+ */
+access_data_t *get_access_data(cache_t *cache, size_t op_index, int memory_address) {
+	// No me gusta este nombre de función pero no estoy creativa hoy
+	// ¿Se podrá hacer sin memoria dinámica? Tipo, ¿tendrá algún beneficio?
+
+	size_t offset = ((1 << cache->offset_bits) - 1) & memory_address;
+	size_t index = (((1 << cache->index_bits) - 1) & memory_address) >> cache->offset_bits;
+	size_t tag = (((1 << cache->tag_bits) - 1) & memory_address) >> (cache->offset_bits + cache->index_bits);
+
+	access_data_t *data = malloc(sizeof(access_data_t));
+	if (!data) return NULL;
+
+	data->tag = tag;
+	data->index = index;
+	data->offset = offset;
+	data->operation_index = op_index;
+	return data;
 }
 
 int cache_simulator(FILE *tracefile, cache_t *cache, bool verbose, int n, int m) {
@@ -286,7 +278,7 @@ int inputs_are_valid(int a, int b, int c) {
 /*
 	Valida input, abre el archivo, crea el cache, llama al simulador
 	cierra el archivo y libera el cache
-*/
+ */
 int main(int argc, char const *argv[]) { // ./cachesim tracefile.xex C E S -v n m
 	if (!(argc == 5 || argc == 8)) {
 		fprintf(stderr, "Error: Cantidad de argumentos incorrecta\n");
