@@ -264,9 +264,7 @@ int cache_simulator(FILE *tracefile, cache_t *cache, bool verbose, int n, int m)
 			errors = cache_write(cache, access_data, bytes_amount, stats);
 		}
 
-		if (verbose && (lines_read >= n || lines_read <= m)) { // No se si hay que hacer este chequeo acá
-			printf("%s\n", "Estoy en modo verboso así que imprimo lo que hice");
-		}
+		if (verbose) printf("%s\n", "Estoy en modo verboso así que imprimo lo que hice");
 
 		free_strv(strv);
 		if (errors) break;
