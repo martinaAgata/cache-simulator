@@ -4,7 +4,7 @@
 #include <string.h>
 #include "strutil.h"
 #define ADDRESS_SIZE 32
-#define ACCESS_PENALTY 100
+#define ACCESS_PENALTY 100 // Sólo a modo de recordatorio, ver si sirve así o no
 
 // Política de desalojo: LRU
 
