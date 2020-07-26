@@ -89,12 +89,13 @@ line_t *load_line(cache_t *cache, access_data_t *access_data) {
 	line_t* line = NULL;
 	line_t *invalid_line = NULL;
 	line_t *least_used_line = cache->sets[access_data->index]->lines[0];
-	// Busco si el tag está cargado en la línea, pero es invalido
+	// Busco si el tag está cargado en la línea pero es invalido
 	for (size_t i = 0; i < cache->E ; i++) {
 		line = cache->sets[access_data->index]->lines[i];
-		if ((line->tag == access_data->tag) && !(line->valid)) {
-			// Cambio la lína a válida porque la "cargue"
+		if ((line->tag == access_data->tag) && !(line->valid)) { // redundante la ultima cond
+			// Si el tag estaba pero era invalida, cambio la línea a válida porque la "cargué"
 			line->valid = 1;
+			// ¿no se debe actualizar last_used?
 			return line;
 		}
 		// Voy guardando la linea menos utilizada
@@ -107,8 +108,8 @@ line_t *load_line(cache_t *cache, access_data_t *access_data) {
 		}
 	}
 	// Recorrí todas las líneas y no encontré el tag
-	if (invalid_line) line = invalid_line; //reemplazo una línea invalida
-	else line = least_used_line; //reemplazo la línea menos utilizada
+	if (invalid_line) line = invalid_line; // Reemplazo una línea invalida
+	else line = least_used_line; // Reemplazo la línea menos utilizada
 
 	if (!line) return NULL;
 
@@ -122,11 +123,10 @@ line_t *load_line(cache_t *cache, access_data_t *access_data) {
 	Recibe la caché y el patrón de acceso, y busca entre los elementos de la caché,
 	si hay una coincidencia devuelve la linea, si no devuelve NULL
  */
-line_t *check_for_match(cache_t *cache, access_data_t *access_data) {
-	// Ver si modificar el nombre :3
+line_t *check_for_hit(cache_t *cache, access_data_t *access_data) {
 	for (size_t i = 0; i < cache->E ; i++) {
-		if ((cache->sets[access_data->index]->lines[i]->valid) && (cache->sets[access_data->index]->lines[i]->tag == access_data->tag)) {
-			// Devuelvo la línea sólo si hay
+		if ((cache->sets[access_data->index]->lines[i]->valid) &&
+			(cache->sets[access_data->index]->lines[i]->tag == access_data->tag)) {
 			return cache->sets[access_data->index]->lines[i];
 		}
 	}
@@ -134,30 +134,30 @@ line_t *check_for_match(cache_t *cache, access_data_t *access_data) {
 }
 
 int cache_write(cache_t *cache, access_data_t *data, size_t bytes_amount, stats_t *stats) {
-	line_t *line_match = check_for_match(cache, data);
-	if (line_match) { // Write hit
+	line_t *hit_line = check_for_hit(cache, data);
+	if (hit_line) { // Write hit
 		// Actualizar dato en bloque (al actualizar dejar B bytes)
 		// Actualizo el acceso para la política de desalojo
-		line_match->last_used = data->operation_index;
+		hit_line->last_used = data->operation_index;
 		// Actualizar estadísticas
 		stats->stores++;
+		hit_line->dirty = 1;
 	} else { // Write miss
-		// Ver si se puede guardar directo el dato o hay que desalojar (usando LRU)
+		// SI HAY DESALOJO Y DIRTY EN 1 --> PONGO DIRTY BIT EN 0
 		line_t *loaded_line = load_line(cache, data);
 		// Actualizar las estadísticas
-		stats->loads++; //Cualquier miss incrementa bytes read
-
-		//Solo si es dirty
+		stats->loads++; // Cualquier miss incrementa bytes read
+		// Solo si es dirty
 		stats->wmiss++;
 	}
 	return 0;
 }
 
 int cache_read(cache_t *cache, access_data_t *data, size_t bytes_amount, stats_t *stats) {
-	line_t *line_match = check_for_match(cache, data);
-	if (line_match) { // Read hit
+	line_t *hit_line = check_for_hit(cache, data);
+	if (hit_line) { // Read hit
 		// Actualizo el acceso para la política de desalojo
-		line_match->last_used = data->operation_index;
+		hit_line->last_used = data->operation_index; // ¿solo se actualiza si hubo hit?
 		// Actualizar estadísticas
 		stats->loads++;
 
@@ -239,15 +239,13 @@ int cache_simulator(FILE *tracefile, cache_t *cache, bool verbose, int n, int m)
 		lines_read++;
 		if (line[read_bytes - 1] == '\n') line[--read_bytes] = '\0'; // Piso el \n
 		strv = split(line, ' ');
-		op_index++;
-		//instruction_pointer = (int) strtol(strv[0], NULL, 16);
+
 		operation = strv[1][0];
 		memory_address = (int) strtol(strv[2], NULL, 16);
 		bytes_amount = (size_t) atoi(strv[3]);
-		// En este caso no hay problema con castear porque sabemos que la tracefile es válida
 
-		access_data = get_access_data(cache,op_index, memory_address);
-
+		access_data = get_access_data(cache, op_index, memory_address);
+		op_index++;
 		// Actualizar el objeto stats
 
  		if (operation == 'R') {
